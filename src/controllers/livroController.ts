@@ -1,98 +1,87 @@
+// src/controllers/livroController.ts
 import { Request, Response } from "express";
-import livroRepository from "../repositories/livroRepository";
+import LivroRepository from "../repositories/livroRepository";
 import { Livro } from "../model/livro";
 
-export default class LivroController {
-    private livroRepository = livroRepository; // usa a instância pronta
+class LivroController {
+  repository = LivroRepository;
 
-  
-    create = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { titulo, autor, anoPublicacao } = req.body;
+  // Criar um novo livro
+  createLivro = async (req: Request, res: Response) => {
+    try {
+      const livro: Livro = req.body;
+      const novoLivro = await this.repository.createLivro(livro);
+      res.status(201).json(novoLivro);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  };
 
-            if (!titulo || !autor || !anoPublicacao) {
-                res.status(400).json({ message: "Campos obrigatórios faltando" });
-                return;
-            }
+  // Buscar todos os livros
+  getAllLivros = async (_req: Request, res: Response) => {
+    try {
+      const livros = await this.repository.getAllLivro();
+      res.status(200).json(livros);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  };
 
-            const livro = new Livro();
-            livro.titulo = titulo;
-            livro.autor = autor;
-            livro.anoPublicacao = anoPublicacao;
+  // Buscar livro por ID
+  getLivroById = async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const livro = await this.repository.getLivroById(id);
+      if (!livro) return res.status(404).json({ message: "Livro não encontrado" });
+      res.status(200).json(livro);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  };
 
-            const novoLivro = await this.livroRepository.createLivro(livro);
-            res.status(201).json(novoLivro);
-        } catch (error) {
-            res.status(500).json({ message: `Erro ao cadastrar o livro: ${error}` });
-        }
-    };
+  // Atualizar livro por ID
+  updateLivro = async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const livroExistente = await this.repository.getLivroById(id);
+      if (!livroExistente) return res.status(404).json({ message: "Livro não encontrado" });
 
-    
-    getAll = async (_req: Request, res: Response): Promise<void> => {
-        try {
-            const livros = await this.livroRepository.getAllLivro();
-            res.status(200).json(livros);
-        } catch (error) {
-            res.status(500).json({ message: `Erro ao buscar livros: ${error}` });
-        }
-    };
+      // Atualiza os campos do livro existente com os dados enviados
+      const dadosAtualizados = { ...livroExistente, ...req.body } as Livro;
+      await this.repository.updateLivro(dadosAtualizados);
 
-    
-    getById = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { id } = req.params;
-            const livro = await this.livroRepository.getLivroById(Number(id));
+      res.status(200).json(dadosAtualizados);
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  };
 
-            if (!livro) {
-                res.status(404).json({ message: "Livro não encontrado" });
-                return;
-            }
+  // Deletar livro por ID
+  deleteLivro = async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const livro = await this.repository.getLivroById(id);
+      if (!livro) return res.status(404).json({ message: "Livro não encontrado" });
 
-            res.status(200).json(livro);
-        } catch (error) {
-            res.status(500).json({ message: `Erro ao buscar o livro: ${error}` });
-        }
-    };
+      await this.repository.deleteLivro(id);
+      res.status(200).json({ message: "Livro excluído com sucesso" });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  };
 
-    // UPDATE - PUT /api/livros/:id
-    update = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { id } = req.params;
-            const livroExistente = await this.livroRepository.getLivroById(Number(id));
-
-            if (!livroExistente) {
-                res.status(404).json({ message: "Livro não encontrado" });
-                return;
-            }
-
-            const { titulo, autor, anoPublicacao } = req.body;
-
-            if (titulo) livroExistente.titulo = titulo;
-            if (autor) livroExistente.autor = autor;
-            if (anoPublicacao) livroExistente.anoPublicacao = anoPublicacao;
-
-            await this.livroRepository.updateLivro(livroExistente);
-            res.status(200).json(livroExistente);
-        } catch (error) {
-            res.status(500).json({ message: `Erro ao atualizar o livro: ${error}` });
-        }
-    };
-
-    // DELETE - DELETE /api/livros/:id
-    delete = async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { id } = req.params;
-            const livroExistente = await this.livroRepository.getLivroById(Number(id));
-
-            if (!livroExistente) {
-                res.status(404).json({ message: "Livro não encontrado" });
-                return;
-            }
-
-            await this.livroRepository.deleteLivro(Number(id));
-            res.status(200).json({ message: "Livro removido com sucesso" });
-        } catch (error) {
-            res.status(500).json({ message: `Erro ao excluir o livro: ${error}` });
-        }
-    };
+  // Deletar todos os livros (opcional)
+  deleteAllLivros = async (_req: Request, res: Response) => {
+    try {
+      const livros = await this.repository.getAllLivro();
+      for (const livro of livros) {
+        await this.repository.deleteLivro(livro.id);
+      }
+      res.status(200).json({ message: "Todos os livros foram excluídos" });
+    } catch (error) {
+      res.status(500).json({ message: (error as Error).message });
+    }
+  };
 }
+
+export default LivroController;
